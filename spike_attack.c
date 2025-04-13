@@ -32,6 +32,7 @@ int check_rock_collision(int x, int y);
 void move_player();
 void sweep_void(int dir);
 void reset_sweep();
+void telegraph_edge(int dir, int flash_on);
 
 
 int player_x = 10;
@@ -41,6 +42,11 @@ int player_height = 7;
 
 int movX=2, dirX=1;
 int movY=2, dirY=1;
+
+int telegraph_blink_state = 0;
+int telegraph_active = 0;
+int telegraph_dir;
+
 
 // GAME ELEMENTS
 typedef enum {
@@ -80,12 +86,17 @@ unsigned char void_bmp[26] = {
     0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF
 };
 
+unsigned char tele_bmp[26] = {
+    0x55,0xAA,0x55,0xAA,0x55,0xAA,0x55,0xAA,0x55,0xAA,0x55,0xAA,0x55,
+    0x55,0xAA,0x55,0xAA,0x55,0xAA,0x55,0xAA,0x55,0xAA,0x55,0xAA,0x55
+};
+
 unsigned int grid_coords[] = {
     4, 18, 32, 46               // represents the coords to be used when drawing rocks in a square
 };
 
 int main() {
-    int i;
+    int i, j=0;
     static int pos = 0;
 
 	int keyin=0;
@@ -98,22 +109,40 @@ int main() {
         // grid and rocks
         embed_grid_elements();
 
+        move_player();
+
+        // Trigger new telegraph periodically
+        if (!telegraph_active && countdown == 20) {
+            telegraph_dir = rand() % 4;
+            telegraph_active = 1;
+        }
+
+        // Handle telegraph phase
+        if (telegraph_active) {
+            telegraph_blink_state = (countdown / 4) & 1;  // blink every 4 frames
+            telegraph_edge(telegraph_dir, telegraph_blink_state);
+        }
+
+        if (countdown == 0) {
+            sweep_void(telegraph_dir);
+            telegraph_active = 0;
+        } else if (countdown == -10) {
+            reset_sweep();
+            countdown = 40;
+        }
+
         // embed the character
         embed_bitmap(amogus_bmp, 5, 7, player_x, player_y);
 
         draw_bitmap();
         usleep(200000);  // Sleep 200ms
 
-        move_player();
-
+        
         countdown--;
-        if (countdown == 0) {
-            sweep_void(rand() % 4);
-        } else if (countdown == -10) {
-            reset_sweep();
-            countdown = 40;
-        }
 
+        
+        j++;
+        printf("%d\n", j);
     
     }
 
@@ -519,3 +548,47 @@ void reset_sweep() {
         }
     }
 }
+
+void telegraph_edge(int dir, int flash_on) {
+    int row, col, low_r, high_r, low_c, high_c;
+    int screen_x, screen_y;
+
+    switch (dir) {
+        case 0: {
+            low_c = high_c = 0;
+            low_r = 0;
+            high_r = GRID_HEIGHT - 1;
+            break;
+        }
+        case 1: {
+            low_c = high_c = GRID_WIDTH - 1;
+            low_r = 0;
+            high_r = GRID_HEIGHT - 1;
+            break;
+        }
+        case 2: {
+            low_r = high_r = 0;
+            low_c = 0;
+            high_c = GRID_WIDTH - 1;
+            break;
+        }
+        case 3: {
+            low_r = high_r = GRID_HEIGHT - 1;
+            low_c = 0;
+            high_c = GRID_WIDTH - 1;
+            break;
+        }
+        default: break;
+    }
+
+    for (row = low_r; row <= high_r; row++) {
+        for (col = low_c; col <= high_c; col++) {
+            // Only draw over EMPTY cells
+            if (grid[row][col] != EMPTY || flash_on == 0)
+                continue;
+
+            embed_bitmap(tele_bmp, 13, 13, grid_coords[col], grid_coords[row]);
+        }
+    }
+}
+
