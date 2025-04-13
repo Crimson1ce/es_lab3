@@ -27,6 +27,13 @@ void init_grid();
 int is_passable(int row, int col);
 int is_deadly(int row, int col);
 void embed_grid_elements();
+int screen_to_grid_index(int coord);
+void move_player(int new_x, int new_y);
+
+int player_x = 10;
+int player_y = 10;
+int player_width = 5;
+int player_height = 7;
 
 // GAME ELEMENTS
 typedef enum {
@@ -74,13 +81,13 @@ int main() {
     int i;
     static int pos = 0;
 
-    int x=0,y=0;
 	int keyin=0;
 	int movX=2, dirX=1;
 	int movY=2, dirY=1;
+    int new_x, new_y;
 
-    x=32;
-    y=32;
+    player_x=32;
+    player_y=32;
 
     init_grid();
 
@@ -89,7 +96,7 @@ int main() {
         embed_grid_elements();
 
         // embed the character
-        embed_bitmap(amogus_bmp, 5, 7, x, y);
+        embed_bitmap(amogus_bmp, 5, 7, player_x, player_y);
 
 
         // Example: draw a diagonal line
@@ -110,29 +117,32 @@ int main() {
 
         pos = (pos + 1) % WIDTH;
 */
-        x=x + (dirX * movX); // increment/decrement X
-		y=y + (dirY * movY); // increment/decrement Y
+
+        new_x=player_x + (dirX * movX); // increment/decrement X
+		new_y=player_y + (dirY * movY); // increment/decrement Y
+
+        move_player(new_x, new_y);
     
 
         // we check for the boundaries of the grid, not the screen
         // horizontal check
-        if (x<=TOPLEFT) {
+        if (new_x<=TOPLEFT+1) {
             dirX=1;                    // check X boundary Min;
-            x = TOPLEFT + 1;
+            // player_x = TOPLEFT + 1;
         }
-        else if (x+5>BOTRIGHT){
+        else if (new_x+5>=BOTRIGHT){
             dirX=-1;                   // check X boundary Max
-            x = BOTRIGHT - 5;
+            // player_x = BOTRIGHT - 5;
         }
 		
         // vertical check
-        if (y<=TOPLEFT) {
+        if (player_y<=TOPLEFT+1) {
             dirY=1;                    // check Y boundary Min
-            y = TOPLEFT + 1;
+            // player_y = TOPLEFT + 1;
         }
-		else if (y+7>BOTRIGHT) {
+		else if (player_y+7>=BOTRIGHT) {
             dirY=-1;	               // check Y boundary Max;
-            y=BOTRIGHT - 7;
+            // player_y=BOTRIGHT - 7;
         }
 
         //clear_bitmap();
@@ -154,8 +164,6 @@ void clear_bitmap() {
         for (j=0; j<ROWS; j++)
             bitmap[(j*WIDTH)+i]=0;
 }
-
-
 
 void draw_bitmap() {
     int row;
@@ -207,7 +215,6 @@ void draw_bitmap() {
     clear_bitmap();
 }
 
-
 /*
 void draw_bitmap() {
     int y;
@@ -252,7 +259,6 @@ void set_pixel(int x, int y, int on) {
     else
         bitmap[byte_index] &= ~(1 << bit_index);
 }
-
 
 void embed_bitmap(const unsigned char *src, int src_width, int src_height, int dst_x, int dst_y) {
     int src_col;
@@ -345,4 +351,54 @@ void embed_grid_elements() {
             }
         }
     }
+}
+
+int screen_to_grid_index(int coord) {
+    int i;
+    for (i = 0; i < 4; i++) {
+        if (coord >= grid_coords[i] && coord < grid_coords[i] + 13) {
+            return i;
+        }
+    }
+    return -1;  // Outside grid
+}
+
+void move_player(int new_x, int new_y) {
+    int corners_x[4];
+    int corners_y[4];
+    int i, j;
+    int grid_col;
+    int grid_row;
+
+    // Define corner positions
+    corners_x[0] = new_x;                        corners_y[0] = new_y;                         // Top-left
+    corners_x[1] = new_x + player_width - 1;     corners_y[1] = new_y;                         // Top-right
+    corners_x[2] = new_x;                        corners_y[2] = new_y + player_height - 1;     // Bottom-left
+    corners_x[3] = new_x + player_width - 1;     corners_y[3] = new_y + player_height - 1;     // Bottom-right
+
+    for (i = 0; i < 4; i++) {   // coordinate selection
+        grid_col = screen_to_grid_index(corners_x[i]);
+        grid_row = screen_to_grid_index(corners_y[i]);
+
+        if (grid_col == -1) new_x = player_x;  // cancel change
+        if (grid_row == -1) new_y = player_y;  // cancel change
+
+        if (grid_col == -1 || grid_row == -1) continue;
+
+        if (grid[grid_row][grid_col] == ROCK) {
+            // check which direction was the perpetrator by rechecking with player_*
+            if (grid[grid_row][screen_to_grid_index(corners_x[i] - new_x + player_x)] != ROCK) {
+                // the player stepped into the rock horizontally
+                new_x = player_x; 
+            }
+            
+            if (grid[screen_to_grid_index(corners_y[i] - new_y + player_y)][grid_col] != ROCK) {
+                // the player stepped into the rock vertically
+                new_y = player_y;
+            }
+        }
+    }
+
+    player_x = new_x;
+    player_y = new_y;
 }
