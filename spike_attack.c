@@ -28,7 +28,11 @@ int is_passable(int row, int col);
 int is_deadly(int row, int col);
 void embed_grid_elements();
 int screen_to_grid_index(int coord);
+int check_rock_collision(int x, int y);
 void move_player();
+void sweep_void(int dir);
+void reset_sweep();
+
 
 int player_x = 10;
 int player_y = 10;
@@ -85,47 +89,32 @@ int main() {
     static int pos = 0;
 
 	int keyin=0;
+    int countdown=40;
 
-    player_x=32;
-    player_y=32;
-
+    // initialize the grid, rocks, and player position
     init_grid();
 
     while (1) {
-        // grid
+        // grid and rocks
         embed_grid_elements();
 
         // embed the character
         embed_bitmap(amogus_bmp, 5, 7, player_x, player_y);
 
-
-        // Example: draw a diagonal line
-        /*for (i = 0; i < WIDTH && i < HEIGHT; i++) {
-            set_pixel(i, i, 1);
-            set_pixel(i+WIDTH/2, i, 1);
-        }*/
-
-        
         draw_bitmap();
         usleep(200000);  // Sleep 200ms
 
-        // Animate a pixel moving across the screen
-/*        for (y = 0; y < HEIGHT; y++)
-            set_pixel((pos - 1 + WIDTH) % WIDTH, y, 0);  // Clear previous
-        for (y = 0; y < HEIGHT; y++)
-            set_pixel(pos, y, 1);  // Set new column
-
-        pos = (pos + 1) % WIDTH;
-*/
-
-        
-
         move_player();
+
+        countdown--;
+        if (countdown == 0) {
+            sweep_void(rand() % 4);
+        } else if (countdown == -10) {
+            reset_sweep();
+            countdown = 40;
+        }
+
     
-
-        
-
-        //clear_bitmap();
     }
 
     return 0;
@@ -460,4 +449,73 @@ void move_player() {
 
     player_x = new_x;
     player_y = new_y;
+}
+
+void sweep_void(int dir) {
+    int row, col;
+    int r, c;
+
+    // dir
+    // 0 left to right
+    // 1 right to left
+    // 2 top to bottom
+    // 3 bottom to top
+
+    switch (dir) {
+        case 0:
+            for (row = 0; row < GRID_HEIGHT; row++) {
+                for (col = 0; col < GRID_WIDTH; col++) {
+                    if (grid[row][col] == ROCK)
+                        break;
+                    if (grid[row][col] == EMPTY)
+                        grid[row][col] = VOID;
+                }
+            }
+            break;
+
+        case 1:
+            for (row = 0; row < GRID_HEIGHT; row++) {
+                for (col = GRID_WIDTH - 1; col >= 0; col--) {
+                    if (grid[row][col] == ROCK)
+                        break;
+                    if (grid[row][col] == EMPTY)
+                        grid[row][col] = VOID;
+                }
+            }
+            break;
+
+        case 2:
+            for (col = 0; col < GRID_WIDTH; col++) {
+                for (row = 0; row < GRID_HEIGHT; row++) {
+                    if (grid[row][col] == ROCK)
+                        break;
+                    if (grid[row][col] == EMPTY)
+                        grid[row][col] = VOID;
+                }
+            }
+            break;
+
+        case 3:
+            for (col = 0; col < GRID_WIDTH; col++) {
+                for (row = GRID_HEIGHT - 1; row >= 0; row--) {
+                    if (grid[row][col] == ROCK)
+                        break;
+                    if (grid[row][col] == EMPTY)
+                        grid[row][col] = VOID;
+                }
+            }
+            break;
+    }
+}
+
+void reset_sweep() {
+    int row, col;
+
+    // Set all cells to EMPTY
+    for (row = 0; row < GRID_HEIGHT; row++) {
+        for (col = 0; col < GRID_WIDTH; col++) {
+            if (grid[row][col] == ROCK) continue;
+            grid[row][col] = EMPTY;
+        }
+    }
 }
