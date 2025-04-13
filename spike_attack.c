@@ -12,12 +12,33 @@
 #define TOPLEFT 3
 #define BOTRIGHT (TOPLEFT + (4*SQUARE) + 4)
 
+#define GRID_WIDTH 4
+#define GRID_HEIGHT 4
+
+//FUNCTION DECLARATIONS
 void clear_screen();
 void clear_bitmap();
 void draw_bitmap();
 void set_pixel(int x, int y, int on);
 void embed_bitmap(const unsigned char *src, int src_width, int src_height, int dst_x, int dst_y);
 
+// Game functions
+void init_grid();
+int is_passable(int row, int col);
+int is_deadly(int row, int col);
+void embed_grid_elements();
+
+// GAME ELEMENTS
+typedef enum {
+    EMPTY,   // Player can walk on it
+    ROCK,    // Impassable
+    VOID     // Kills player
+} Cell;
+
+
+Cell grid[GRID_HEIGHT][GRID_WIDTH];
+
+// BITMAPS
 unsigned char bitmap[BITMAP_SIZE];
 
 unsigned char amogus_bmp[5] = {
@@ -40,6 +61,11 @@ unsigned char rock_bmp[26] = {
 	0x00,0x01,0x03,0x0F,0x0F,0x0D,0x0C,0x0D,0x0D,0x0F,0x06,0x03,0x00
 };
 
+unsigned char void_bmp[26] = {
+    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
+    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF
+};
+
 unsigned int grid_coords[] = {
     4, 18, 32, 46               // represents the coords to be used when drawing rocks in a square
 };
@@ -56,24 +82,21 @@ int main() {
     x=32;
     y=32;
 
+    init_grid();
 
     while (1) {
-    // grid
-    embed_bitmap(grid_bmp, 57, 57, 3, 3);
+        // grid
+        embed_grid_elements();
 
-    // rock
-    embed_bitmap(rock_bmp, 13, 13, 4, 4);
-
-
-    // embed the character
-    embed_bitmap(amogus_bmp, 5, 7, x, y);
+        // embed the character
+        embed_bitmap(amogus_bmp, 5, 7, x, y);
 
 
-    // Example: draw a diagonal line
-    /*for (i = 0; i < WIDTH && i < HEIGHT; i++) {
-        set_pixel(i, i, 1);
-        set_pixel(i+WIDTH/2, i, 1);
-    }*/
+        // Example: draw a diagonal line
+        /*for (i = 0; i < WIDTH && i < HEIGHT; i++) {
+            set_pixel(i, i, 1);
+            set_pixel(i+WIDTH/2, i, 1);
+        }*/
 
         
         draw_bitmap();
@@ -258,6 +281,67 @@ void embed_bitmap(const unsigned char *src, int src_width, int src_height, int d
 
                 // Set the bit in the large bitmap
                 set_pixel(dst_col, dst_y_pos, src_bit_value);
+            }
+        }
+    }
+}
+
+
+// Game functions
+void init_grid() {
+    int row;
+    int col;
+
+    for (row = 0; row < GRID_HEIGHT; row++) {
+        for (col = 0; col < GRID_WIDTH; col++) {
+            grid[row][col] = EMPTY;
+        }
+    }
+
+    grid[1][2] = ROCK;
+    grid[2][3] = VOID;
+}
+
+int is_passable(int row, int col) {
+    if (row < 0 || row >= GRID_HEIGHT || col < 0 || col >= GRID_WIDTH)
+        return 0;
+
+    return grid[row][col] == EMPTY;
+}
+
+int is_deadly(int row, int col) {
+    if (row < 0 || row >= GRID_HEIGHT || col < 0 || col >= GRID_WIDTH)
+        return 0;
+
+    return grid[row][col] == VOID;
+}
+
+void embed_grid_elements() {
+    int row;
+    int col;
+    int screen_x;
+    int screen_y;
+
+    embed_bitmap(grid_bmp, 57, 57, TOPLEFT, TOPLEFT);
+
+    for (row = 0; row < GRID_HEIGHT; row++) {
+        for (col = 0; col < GRID_WIDTH; col++) {
+            screen_x = grid_coords[col];
+            screen_y = grid_coords[row];
+
+            switch (grid[row][col]) {
+                case ROCK:
+                    embed_bitmap(rock_bmp, 13, 13, screen_x, screen_y);
+                    break;
+
+                case VOID:
+                    embed_bitmap(void_bmp, 13, 13, screen_x, screen_y);
+                    break;
+
+                case EMPTY:
+                default:
+                    // No drawing for empty cells
+                    break;
             }
         }
     }
