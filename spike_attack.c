@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -7,10 +8,15 @@
 #define ROWS (HEIGHT / 8)
 #define BITMAP_SIZE (WIDTH * ROWS)
 
+#define SQUARE 13
+#define TOPLEFT 3
+#define BOTRIGHT (TOPLEFT + (4*SQUARE) + 4)
 
-void embed_bitmap(const unsigned char *src, int src_width, int src_height,
-                  int dst_x, int dst_y);
-
+void clear_screen();
+void clear_bitmap();
+void draw_bitmap();
+void set_pixel(int x, int y, int on);
+void embed_bitmap(const unsigned char *src, int src_width, int src_height, int dst_x, int dst_y);
 
 unsigned char bitmap[BITMAP_SIZE];
 
@@ -35,8 +41,83 @@ unsigned char rock_bmp[26] = {
 };
 
 unsigned int grid_coords[] = {
-    4, 18, 32, 46
+    4, 18, 32, 46               // represents the coords to be used when drawing rocks in a square
 };
+
+int main() {
+    int i;
+    static int pos = 0;
+
+    int x=0,y=0;
+	int keyin=0;
+	int movX=2, dirX=1;
+	int movY=2, dirY=1;
+
+    x=32;
+    y=32;
+
+
+    while (1) {
+    // grid
+    embed_bitmap(grid_bmp, 57, 57, 3, 3);
+
+    // rock
+    embed_bitmap(rock_bmp, 13, 13, 4, 4);
+
+
+    // embed the character
+    embed_bitmap(amogus_bmp, 5, 7, x, y);
+
+
+    // Example: draw a diagonal line
+    /*for (i = 0; i < WIDTH && i < HEIGHT; i++) {
+        set_pixel(i, i, 1);
+        set_pixel(i+WIDTH/2, i, 1);
+    }*/
+
+        
+        draw_bitmap();
+        usleep(200000);  // Sleep 200ms
+
+        // Animate a pixel moving across the screen
+/*        for (y = 0; y < HEIGHT; y++)
+            set_pixel((pos - 1 + WIDTH) % WIDTH, y, 0);  // Clear previous
+        for (y = 0; y < HEIGHT; y++)
+            set_pixel(pos, y, 1);  // Set new column
+
+        pos = (pos + 1) % WIDTH;
+*/
+        x=x + (dirX * movX); // increment/decrement X
+		y=y + (dirY * movY); // increment/decrement Y
+    
+
+        // we check for the boundaries of the grid, not the screen
+        // horizontal check
+        if (x<=TOPLEFT) {
+            dirX=1;                    // check X boundary Min;
+            x = TOPLEFT + 1;
+        }
+        else if (x+5>BOTRIGHT){
+            dirX=-1;                   // check X boundary Max
+            x = BOTRIGHT - 5;
+        }
+		
+        // vertical check
+        if (y<=TOPLEFT) {
+            dirY=1;                    // check Y boundary Min
+            y = TOPLEFT + 1;
+        }
+		else if (y+7>BOTRIGHT) {
+            dirY=-1;	               // check Y boundary Max;
+            y=BOTRIGHT - 7;
+        }
+
+        //clear_bitmap();
+    }
+
+    return 0;
+}
+
 
 
 
@@ -50,6 +131,8 @@ void clear_bitmap() {
         for (j=0; j<ROWS; j++)
             bitmap[(j*WIDTH)+i]=0;
 }
+
+
 
 void draw_bitmap() {
     int row;
@@ -147,66 +230,8 @@ void set_pixel(int x, int y, int on) {
         bitmap[byte_index] &= ~(1 << bit_index);
 }
 
-int main() {
-    int i;
-    static int pos = 0;
 
-    int x=0,y=0;
-	int keyin=0;
-	int movX=3, dirX=1;
-	int movY=3, dirY=1;
-
-    x=64;
-    y=32;
-
-
-    while (1) {
-    // grid
-    embed_bitmap(grid_bmp, 57, 57, 3, 3);
-
-    // rock
-    embed_bitmap(rock_bmp, 13, 13, 4, 4);
-
-
-    // embed the character
-    embed_bitmap(amogus_bmp, 5, 7, x, y);
-
-
-    // Example: draw a diagonal line
-    /*for (i = 0; i < WIDTH && i < HEIGHT; i++) {
-        set_pixel(i, i, 1);
-        set_pixel(i+WIDTH/2, i, 1);
-    }*/
-
-        
-        draw_bitmap();
-        usleep(200000);  // Sleep 200ms
-
-        // Animate a pixel moving across the screen
-/*        for (y = 0; y < HEIGHT; y++)
-            set_pixel((pos - 1 + WIDTH) % WIDTH, y, 0);  // Clear previous
-        for (y = 0; y < HEIGHT; y++)
-            set_pixel(pos, y, 1);  // Set new column
-
-        pos = (pos + 1) % WIDTH;
-*/
-        x=x + (dirX * movX); // increment/decrement X
-		y=y + (dirY * movY); // increment/decrement Y
-    
-        if (x<0)          dirX=1;  //x=0;         // check X boundary Min;
-		if (x+5>WIDTH)    dirX=-1; //x=WIDTH-5-1;     // check X boundary Max
-		if (y<0)          dirY=1;  //y=0;         // check Y boundary Min
-		if (y+7>HEIGHT)   dirY=-1; //y=HEIGHT-7-1;	// check Y boundary Max;
-
-        //clear_bitmap();
-    }
-
-    return 0;
-}
-
-
-void embed_bitmap(const unsigned char *src, int src_width, int src_height,
-                  int dst_x, int dst_y) {
+void embed_bitmap(const unsigned char *src, int src_width, int src_height, int dst_x, int dst_y) {
     int src_col;
     int src_byte_row;
     int dst_col;
@@ -237,4 +262,3 @@ void embed_bitmap(const unsigned char *src, int src_width, int src_height,
         }
     }
 }
-
