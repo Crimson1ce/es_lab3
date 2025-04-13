@@ -1,2 +1,2 @@
 To compile and run use:
-`gcc -o bitmap bitmap.c -lm && ./bitmap`
+`gcc -o game spike_attack.c -lm && ./game`
