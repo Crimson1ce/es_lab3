@@ -28,12 +28,15 @@ int is_passable(int row, int col);
 int is_deadly(int row, int col);
 void embed_grid_elements();
 int screen_to_grid_index(int coord);
-void move_player(int new_x, int new_y);
+void move_player();
 
 int player_x = 10;
 int player_y = 10;
 int player_width = 5;
 int player_height = 7;
+
+int movX=2, dirX=1;
+int movY=2, dirY=1;
 
 // GAME ELEMENTS
 typedef enum {
@@ -82,9 +85,6 @@ int main() {
     static int pos = 0;
 
 	int keyin=0;
-	int movX=2, dirX=1;
-	int movY=2, dirY=1;
-    int new_x, new_y;
 
     player_x=32;
     player_y=32;
@@ -118,32 +118,12 @@ int main() {
         pos = (pos + 1) % WIDTH;
 */
 
-        new_x=player_x + (dirX * movX); // increment/decrement X
-		new_y=player_y + (dirY * movY); // increment/decrement Y
+        
 
-        move_player(new_x, new_y);
+        move_player();
     
 
-        // we check for the boundaries of the grid, not the screen
-        // horizontal check
-        if (new_x<=TOPLEFT+1) {
-            dirX=1;                    // check X boundary Min;
-            // player_x = TOPLEFT + 1;
-        }
-        else if (new_x+5>=BOTRIGHT){
-            dirX=-1;                   // check X boundary Max
-            // player_x = BOTRIGHT - 5;
-        }
-		
-        // vertical check
-        if (player_y<=TOPLEFT+1) {
-            dirY=1;                    // check Y boundary Min
-            // player_y = TOPLEFT + 1;
-        }
-		else if (player_y+7>=BOTRIGHT) {
-            dirY=-1;	               // check Y boundary Max;
-            // player_y=BOTRIGHT - 7;
-        }
+        
 
         //clear_bitmap();
     }
@@ -297,15 +277,49 @@ void embed_bitmap(const unsigned char *src, int src_width, int src_height, int d
 void init_grid() {
     int row;
     int col;
+    int i, index;
+    int used_rows[4] = {0, 0, 0, 0};
+    int used_cols[4] = {0, 0, 0, 0};
+    int chosen_rows[3];
+    int chosen_cols[3];
+    int type_choice;
 
-    for (row = 0; row < GRID_HEIGHT; row++) {
-        for (col = 0; col < GRID_WIDTH; col++) {
-            grid[row][col] = EMPTY;
+    // Seed RNG
+    srand(1028);
+
+    // Pick 3 distinct rows and 3 distinct columns
+    i = 0, index = rand() % 13;
+    while (i < 3) {
+        row = rand() % GRID_HEIGHT;
+        col = rand() % GRID_WIDTH;
+
+        if (!used_rows[row] && !used_cols[col]) {
+            used_rows[row] = 1;
+            used_cols[col] = 1;
+            chosen_rows[i] = row;
+            chosen_cols[i] = col;
+            i++;
         }
     }
 
-    grid[1][2] = ROCK;
-    grid[2][3] = VOID;
+    // Assign random ROCK to the chosen positions
+    for (i = 0; i < 3; i++) {
+        grid[chosen_rows[i]][chosen_cols[i]] = ROCK;
+    }
+
+    // Set all other cells to EMPTY
+    for (row = 0; row < GRID_HEIGHT; row++) {
+        for (col = 0; col < GRID_WIDTH; col++) {
+            if (grid[row][col] == ROCK) continue;
+            grid[row][col] = EMPTY;
+
+            if (index == 0) {
+                player_x = grid_coords[col];
+                player_y = grid_coords[row];
+            }
+            index--;
+        }
+    }
 }
 
 int is_passable(int row, int col) {
@@ -360,42 +374,87 @@ int screen_to_grid_index(int coord) {
             return i;
         }
     }
+
+    // special case for grid lines
+    for (i = 1; i < 4; i++) {
+        if (coord == grid_coords[i] - 1)
+            return -2;
+    }
+
     return -1;  // Outside grid
 }
 
-void move_player(int new_x, int new_y) {
+int check_rock_collision(int x, int y) {
     int corners_x[4];
     int corners_y[4];
-    int i, j;
+    int i;
     int grid_col;
     int grid_row;
 
+    // check if the player would collide with a rock at x,y
     // Define corner positions
-    corners_x[0] = new_x;                        corners_y[0] = new_y;                         // Top-left
-    corners_x[1] = new_x + player_width - 1;     corners_y[1] = new_y;                         // Top-right
-    corners_x[2] = new_x;                        corners_y[2] = new_y + player_height - 1;     // Bottom-left
-    corners_x[3] = new_x + player_width - 1;     corners_y[3] = new_y + player_height - 1;     // Bottom-right
+    corners_x[0] = x;                        corners_y[0] = y;                         // Top-left
+    corners_x[1] = x + player_width - 1;     corners_y[1] = y;                         // Top-right
+    corners_x[2] = x;                        corners_y[2] = y + player_height - 1;     // Bottom-left
+    corners_x[3] = x + player_width - 1;     corners_y[3] = y + player_height - 1;     // Bottom-right
 
     for (i = 0; i < 4; i++) {   // coordinate selection
         grid_col = screen_to_grid_index(corners_x[i]);
         grid_row = screen_to_grid_index(corners_y[i]);
 
-        if (grid_col == -1) new_x = player_x;  // cancel change
-        if (grid_row == -1) new_y = player_y;  // cancel change
-
-        if (grid_col == -1 || grid_row == -1) continue;
+        if (grid_col < 0 || grid_row < 0) continue;
 
         if (grid[grid_row][grid_col] == ROCK) {
-            // check which direction was the perpetrator by rechecking with player_*
-            if (grid[grid_row][screen_to_grid_index(corners_x[i] - new_x + player_x)] != ROCK) {
-                // the player stepped into the rock horizontally
-                new_x = player_x; 
-            }
-            
-            if (grid[screen_to_grid_index(corners_y[i] - new_y + player_y)][grid_col] != ROCK) {
-                // the player stepped into the rock vertically
-                new_y = player_y;
-            }
+            return 1;
+        }
+    }
+    return 0;   
+}
+
+void move_player() {
+    int new_x, new_y;
+
+    int i, j;
+    int grid_col;
+    int grid_row;
+    int flag = 0;
+
+    new_x=player_x + (dirX * movX); // increment/decrement X
+    new_y=player_y + (dirY * movY); // increment/decrement Y
+
+    // printf("new_x: %d, new_y: %d\nplayer_x: %d, player_y: %d\n", new_x, new_y, player_x, player_y);
+
+    // we check for the boundaries of the grid, not the screen
+    // horizontal check
+    if (new_x<=TOPLEFT+1) {
+        dirX=1;                    // check X boundary Min;
+        new_x = TOPLEFT + 1;
+    }
+    else if (new_x+5>=BOTRIGHT){
+        dirX=-1;                   // check X boundary Max
+        new_x = BOTRIGHT - 5;
+    }
+    
+    // vertical check
+    if (new_y<=TOPLEFT+1) {
+        dirY=1;                    // check Y boundary Min
+        new_y = TOPLEFT + 1;
+    }
+    else if (new_y+7>=BOTRIGHT) {
+        dirY=-1;	               // check Y boundary Max;
+        new_y=BOTRIGHT - 7;
+    }
+
+
+    if (check_rock_collision(new_x, new_y)) {
+        // if rock collision
+        if (check_rock_collision(new_x, player_y)) {
+            new_x = player_x;
+        } else if (check_rock_collision(player_x, new_y)) {
+            new_y = player_y;
+        } else {
+            new_x = player_x;
+            new_y = player_y;
         }
     }
 
