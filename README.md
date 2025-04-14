@@ -1,2 +1,1 @@
-To compile and run use:
-`gcc -o game spike_attack.c -lm && ./game`
+Run the executable `run_game` to compile and run the game.
