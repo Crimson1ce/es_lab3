@@ -29,6 +29,7 @@ int is_deadly(int row, int col);
 void embed_grid_elements();
 int screen_to_grid_index(int coord);
 int check_rock_collision(int x, int y);
+int check_player_death();
 void move_player();
 void sweep_void(int dir);
 void reset_sweep();
@@ -96,11 +97,15 @@ unsigned int grid_coords[] = {
 };
 
 int main() {
-    int i, j=0;
-    static int pos = 0;
+    int i;
+    int score = 0;
+    //static int pos = 0;
 
 	int keyin=0;
     int countdown=40;
+
+    // Seed RNG
+    srand(1028);
 
     // initialize the grid, rocks, and player position
     init_grid();
@@ -126,24 +131,38 @@ int main() {
         if (countdown == 0) {
             sweep_void(telegraph_dir);
             telegraph_active = 0;
+            embed_grid_elements();
         } else if (countdown == -10) {
             reset_sweep();
             countdown = 40;
+            score++;
         }
 
         // embed the character
         embed_bitmap(amogus_bmp, 5, 7, player_x, player_y);
 
+        // draw on screen
         draw_bitmap();
+
+        // check if the player has died
+        if (check_player_death()) {
+            // GAME OVER
+            usleep(5000000);  // Pause 5 sec
+            // print that you're dead on screen
+            // press key to continue?
+            // while (keyin == 0) keyin = scanKey();
+            // reset game? 
+            init_grid();
+            reset_sweep();
+            countdown = 40;
+            score = 0;
+        }
+
+
         usleep(200000);  // Sleep 200ms
 
         
         countdown--;
-
-        
-        j++;
-        printf("%d\n", j);
-    
     }
 
     return 0;
@@ -302,8 +321,12 @@ void init_grid() {
     int chosen_cols[3];
     int type_choice;
 
-    // Seed RNG
-    srand(1028);
+    // set all cells to empty
+    for (row = 0; row < GRID_HEIGHT; row++) {
+        for (col = 0; col < GRID_WIDTH; col++) {
+            grid[row][col] = EMPTY;
+        }
+    }
 
     // Pick 3 distinct rows and 3 distinct columns
     i = 0, index = rand() % 13;
@@ -325,12 +348,10 @@ void init_grid() {
         grid[chosen_rows[i]][chosen_cols[i]] = ROCK;
     }
 
-    // Set all other cells to EMPTY
+    // Get coordinates of randomly chosen cell, skipping the rocks
     for (row = 0; row < GRID_HEIGHT; row++) {
         for (col = 0; col < GRID_WIDTH; col++) {
             if (grid[row][col] == ROCK) continue;
-            grid[row][col] = EMPTY;
-
             if (index == 0) {
                 player_x = grid_coords[col];
                 player_y = grid_coords[row];
@@ -427,6 +448,43 @@ int check_rock_collision(int x, int y) {
         }
     }
     return 0;   
+}
+
+int check_player_death() {
+    int corners_x[4];
+    int corners_y[4];
+    int i;
+    int grid_col;
+    int grid_row;
+
+    // Define the 4 corner positions of the character
+    corners_x[0] = player_x;
+    corners_y[0] = player_y;
+
+    corners_x[1] = player_x + player_width - 1;
+    corners_y[1] = player_y;
+
+    corners_x[2] = player_x;
+    corners_y[2] = player_y + player_height - 1;
+
+    corners_x[3] = player_x + player_width - 1;
+    corners_y[3] = player_y + player_height - 1;
+
+    // Check each corner for VOID tile
+    for (i = 0; i < 4; i++) {
+        grid_col = screen_to_grid_index(corners_x[i]);
+        grid_row = screen_to_grid_index(corners_y[i]);
+
+        //
+        if (grid_col < 0 || grid_row < 0)
+            continue;  // outside grid or grid line = not deadly
+
+        if (grid[grid_row][grid_col] == VOID) {
+            return 1;  // Deadly tile found
+        }
+    }
+
+    return 0;  // Player survives
 }
 
 void move_player() {
@@ -552,30 +610,45 @@ void reset_sweep() {
 void telegraph_edge(int dir, int flash_on) {
     int row, col, low_r, high_r, low_c, high_c;
     int screen_x, screen_y;
+    // int offsetX, offsetY;
+
+    // dir
+    // 0 left to right
+    // 1 right to left
+    // 2 top to bottom
+    // 3 bottom to top
 
     switch (dir) {
         case 0: {
             low_c = high_c = 0;
             low_r = 0;
             high_r = GRID_HEIGHT - 1;
+            // offsetX = -1;
+            // offsetY =  0;
             break;
         }
         case 1: {
             low_c = high_c = GRID_WIDTH - 1;
             low_r = 0;
             high_r = GRID_HEIGHT - 1;
+            // offsetX = 1;
+            // offsetY = 0;
             break;
         }
         case 2: {
             low_r = high_r = 0;
             low_c = 0;
             high_c = GRID_WIDTH - 1;
+            // offsetX =  0;
+            // offsetY = -1;
             break;
         }
         case 3: {
             low_r = high_r = GRID_HEIGHT - 1;
             low_c = 0;
             high_c = GRID_WIDTH - 1;
+            // offsetX = 0;
+            // offsetY = 1;
             break;
         }
         default: break;
